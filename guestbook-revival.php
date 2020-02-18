@@ -10,6 +10,17 @@
 
 defined( 'ABSPATH' ) or die( 'I got your IP, and I just called the cops.' );
 
+
+function gbr_load_textdomain() {
+	load_plugin_textdomain('guestbook-revival', false, basename(dirname(__FILE__)) . '/languages');
+}
+add_action( 'plugins_loaded', 'gbr_load_textdomain' );
+
+
+
+function gbr_taxonomy_update_count_callback() {
+}
+
 // Register Custom Taxonomy
 function gbr_register_taxonomy() {
 
