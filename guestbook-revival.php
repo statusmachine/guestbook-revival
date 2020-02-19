@@ -11,6 +11,8 @@
 defined( 'ABSPATH' ) or die( 'I got your IP, and I just called the cops.' );
 
 
+define('GBR_CUSTOM_POST_TYPE', 'guestbook_entry');
+
 function gbr_load_textdomain() {
   load_plugin_textdomain('guestbook-revival', false, basename(dirname(__FILE__)) . '/languages');
 }
@@ -57,7 +59,7 @@ function gbr_register_taxonomy() {
     'update_count_callback'      => 'gbr_taxonomy_update_count_callback',
     'show_in_rest'               => false,
   );
-  register_taxonomy( 'gbr_guestbook_tag', array( 'guestbook_entry' ), $args );
+  register_taxonomy( 'gbr_guestbook_tag', array( GBR_CUSTOM_POST_TYPE ), $args );
 
 }
 add_action( 'init', 'gbr_register_taxonomy', 0 );
@@ -115,7 +117,50 @@ function gbr_register_post_type() {
     'capability_type'       => 'page',
     'show_in_rest'          => false,
   );
-  register_post_type( 'guestbook_entry', $args );
+  register_post_type( GBR_CUSTOM_POST_TYPE, $args );
 
 }
 add_action( 'init', 'gbr_register_post_type', 0 );
+
+
+// Form & action to handle that form:
+define('GBR_CREATE_ACTION', 'gbr_create_guestbook');
+define('GBR_CREATE_NONCE_FIELD', GBR_CREATE_ACTION.'_nonce');
+
+function gbr_guestbook_form() {
+  return "<form action='".get_admin_url()."admin-post.php' method='post'>
+    <input type='hidden' name='action' value='".GBR_CREATE_ACTION."'>
+    ". wp_nonce_field( GBR_CREATE_ACTION, GBR_CREATE_NONCE_FIELD, true, false ) ."
+    <p>
+      <input name='guestbook_name' type='text' placeholder='Billy Bob'>
+    </p>
+    <p>
+      <textarea name='guestbook_content' cols='45' rows='8' maxlength='1000' required='required' placeholder='I really like your website...'></textarea>
+    </p>
+    <p>
+      <input type='submit' value='".__( 'Send', 'guestbook-revival' )."'>
+    </p>
+  </form>";
+}
+add_shortcode( 'guestbook_form', 'gbr_guestbook_form' );
+
+function gbr_form_handling() {
+  if (!isset( $_POST[GBR_CREATE_NONCE_FIELD] ) 
+  || ! wp_verify_nonce( $_POST[GBR_CREATE_NONCE_FIELD], GBR_CREATE_ACTION)) {
+    wp_die("This action is protected.");
+  } else {
+    //print 'wow ca marche!';
+    //print_r($_POST);wp_die();
+    wp_insert_post([
+      'post_title' => $_POST['guestbook_name'],
+      'post_content' => $_POST['guestbook_content'],
+      'post_type' => GBR_CUSTOM_POST_TYPE,
+      'post_status' => 'publish',
+    ], $error_on_failure = false);
+
+    wp_redirect( $_SERVER['HTTP_REFERER'] );
+    exit;
+  }
+}
+add_action( 'admin_post_'.GBR_CREATE_ACTION, 'gbr_form_handling' );
+add_action( 'admin_post_nopriv_'.GBR_CREATE_ACTION, 'gbr_form_handling' );
