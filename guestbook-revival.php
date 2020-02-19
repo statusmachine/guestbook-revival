@@ -11,6 +11,19 @@
 defined( 'ABSPATH' ) or die( 'I got your IP, and I just called the cops.' );
 
 
+assert_options(ASSERT_ACTIVE, 1);
+assert_options(ASSERT_WARNING, 0);
+assert_options(ASSERT_BAIL, 1);
+assert_options(ASSERT_CALLBACK, 'gbr_callback');
+
+function gbr_callback($script, $line, $message) {
+  echo "<h1>Condition failed!</h1><br />
+      Script: <strong>$script</strong><br />
+      Line: <strong>$line</strong><br />
+      Condition: <br /><pre>$message</pre>";
+}
+
+
 define('GBR_CUSTOM_POST_TYPE', 'guestbook_entry');
 
 function gbr_load_textdomain() {
@@ -144,13 +157,37 @@ function gbr_guestbook_form() {
 }
 add_shortcode( 'guestbook_form', 'gbr_guestbook_form' );
 
+
+function gbr_guestbook() {
+  apply_filters('the_content', ''); // exit the current (parent) the_content filtering context
+  $n_posts_per_page = -1; // -1 means no limit
+  $posts = get_posts([
+    'numberposts' => $n_posts_per_page,
+    'post_type' => GBR_CUSTOM_POST_TYPE,
+  ]);
+  $posts_count = wp_count_posts(GBR_CUSTOM_POST_TYPE);
+  $published_posts_count = $posts_count->publish;
+  $current_page = get_query_var('paged');
+
+  $html = "<div class='gbr-guestbook-entries'>";
+  foreach ($posts as $post) {
+    $html .= "<div class='gbr-guestbook-entry'>";
+    $html .= "  <h3 class='gbr-guestbook-entry-title'>".$post->post_title."</h3>";
+    $html .= "  <div class='gbr-guestbook-entry-content'>".apply_filters('the_content', $post->post_content)."</div>";
+    $html .= "</div>";
+  }
+  $html .= "</div>"; // ends gbr-guestbook-entries
+
+  return $html;
+}
+add_shortcode( 'guestbook', 'gbr_guestbook' );
+
+
 function gbr_form_handling() {
-  if (!isset( $_POST[GBR_CREATE_NONCE_FIELD] ) 
+  if (!isset( $_POST[GBR_CREATE_NONCE_FIELD] )
   || ! wp_verify_nonce( $_POST[GBR_CREATE_NONCE_FIELD], GBR_CREATE_ACTION)) {
     wp_die("This action is protected.");
   } else {
-    //print 'wow ca marche!';
-    //print_r($_POST);wp_die();
     wp_insert_post([
       'post_title' => $_POST['guestbook_name'],
       'post_content' => $_POST['guestbook_content'],
